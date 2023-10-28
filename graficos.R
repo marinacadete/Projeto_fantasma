@@ -1,6 +1,7 @@
 library(readr)
 library(dplyr)
 library(ggplot2)
+library(stringr)
 
 
 devolução <- read_csv("devolucao.csv")
@@ -76,6 +77,20 @@ ggplot(preco_marca, aes(Brand, Price)) +
 
 ggsave("boxplot.png", width = 158, height = 93, units = "mm")
 
+quadro_resumo <- preco_marca %>%
+  group_by(Brand) %>% # caso mais de uma categoria
+  summarize(Média = round(mean(Price),2),
+              `Desvio Padrão` = round(sd(Price),2),
+              `Variância` = round(var(Price),2),
+              `Mínimo` = round(min(Price),2),
+              `1º Quartil` = round(quantile(Price, probs = .25),2),
+              Mediana = round(quantile(Price, probs = .5),2),
+              `3º Quartil` = round(quantile(Price, probs = .75),2),
+              `Máximo` = round(max(Price),2)) %>% t() %>% as.data.frame() %>%
+  mutate(V1 = str_replace (V1,"\\.",","))
+
+xtable::xtable(quadro_resumo)
+
 rstatix::kruskal_test(preco_marca, Price ~ Brand)
 rstatix::kruskal_effsize(preco_marca, Price ~ Brand)
 
@@ -85,15 +100,30 @@ categoria_cor <- dados %>%
   select(Category, Color) %>%
   filter(Category != "Kids' Fashion") %>%
   group_by(Category, Color) %>%
-  mutate(k = 1) %>%
-  reframe(k = sum(k)) %>%
-  tidyr::drop_na(Color)
+  summarise(freq = n(), .groups = "keep") %>%
+  tidyr::drop_na(Color) %>%
+  mutate(freq_relativa = freq %>% formattable::percent(digits = 2L, format = "f"))
+
+categoria_cor <- dados %>%
+  select(Category, Color) %>%
+  tidyr::drop_na(Color) %>%
+  filter(Category != "Kids' Fashion") %>%
+  group_by(Color, Category) %>%
+  summarise(freq = n()) %>%
+  mutate(perc = round(freq/sum(freq),4)*100)
+
+porcentagens <- str_c(categoria_cor$perc, "%") %>% str_replace("\\.", ",")
+legendas <- str_squish(str_c(categoria_cor$freq, " (", porcentagens, ")"))
 
 # Gráfico
-ggplot(categoria_cor, aes(x = Color, y = k, fill = Category)) +
-  geom_col(position = "dodge") +
+ggplot(categoria_cor, aes(forcats::fct_reorder(Color, freq, .desc = T),
+                          y = freq, fill = Category, label = legendas)) +
+  geom_col(position = position_dodge2(preserve = "single", padding = 0)) +
+  geom_text(position = position_dodge(width = .9), vjust = -0.5, hjust = 0.5, size = 2) +
+  labs(x = "Cor", y = "Frequência") +
   scale_y_continuous(breaks = seq(0, 70, by = 5)) +
   theme_estat() +
   scale_fill_manual(values = c("#003366","#A11D21"))
 
 ggsave("coluna.png", width = 158, height = 93, units = "mm")
+
