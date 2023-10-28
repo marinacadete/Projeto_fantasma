@@ -3,7 +3,8 @@ library(dplyr)
 library(ggplot2)
 
 
-devolução <- read_csv("devolução.csv")
+devolução <- read_csv("devolucao.csv")
+devolucao_atualizada <- read.csv("devolucao_atualizado.csv")
 vendas <- read_csv("vendas.csv",
                    col_types = cols(`Data Venda` = col_date(format = "%m/%d/%Y"),
                                     `User ID` = col_character(), `Product ID` = col_character(),
@@ -42,7 +43,7 @@ theme_estat <- function (...) {
 }
 
 
-# Análise 1
+# Análise 1 - Faturamento anual por categoria
 venda_ano <- dados %>%
   select(Category, Mes, Price, `Motivo devolução`) %>%
   tidyr::drop_na(Price, Mes, Category) %>%
@@ -61,7 +62,7 @@ ggplot(venda_ano, aes(Mes, Price, group = Category, color = Category)) +
 ggsave("gráficolinha.png", width = 158, height = 93, units = "mm")
 
 
-# Análise 2
+# Análise 2 - Variação do preço por marca
 preco_marca <- dados %>%
   select(Price, Brand) %>%
   tidyr::drop_na(Price, Brand)
@@ -77,3 +78,22 @@ ggsave("boxplot.png", width = 158, height = 93, units = "mm")
 
 rstatix::kruskal_test(preco_marca, Price ~ Brand)
 rstatix::kruskal_effsize(preco_marca, Price ~ Brand)
+
+
+# Análise 3 - Relação entre categorias (apenas marculino e feminino) e cor
+categoria_cor <- dados %>%
+  select(Category, Color) %>%
+  filter(Category != "Kids' Fashion") %>%
+  group_by(Category, Color) %>%
+  mutate(k = 1) %>%
+  reframe(k = sum(k)) %>%
+  tidyr::drop_na(Color)
+
+# Gráfico
+ggplot(categoria_cor, aes(x = Color, y = k, fill = Category)) +
+  geom_col(position = "dodge") +
+  scale_y_continuous(breaks = seq(0, 70, by = 5)) +
+  theme_estat() +
+  scale_fill_manual(values = c("#003366","#A11D21"))
+
+ggsave("coluna.png", width = 158, height = 93, units = "mm")
