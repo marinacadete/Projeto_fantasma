@@ -98,14 +98,6 @@ rstatix::kruskal_effsize(preco_marca, Price ~ Brand)
 # Análise 3 - Relação entre categorias (apenas marculino e feminino) e cor
 categoria_cor <- dados %>%
   select(Category, Color) %>%
-  filter(Category != "Kids' Fashion") %>%
-  group_by(Category, Color) %>%
-  summarise(freq = n(), .groups = "keep") %>%
-  tidyr::drop_na(Color) %>%
-  mutate(freq_relativa = freq %>% formattable::percent(digits = 2L, format = "f"))
-
-categoria_cor <- dados %>%
-  select(Category, Color) %>%
   tidyr::drop_na(Color) %>%
   filter(Category != "Kids' Fashion") %>%
   group_by(Color, Category) %>%
