@@ -6,15 +6,13 @@ library(stringr)
 
 devolução <- read_csv("devolucao.csv")
 devolucao_atualizada <- read.csv("devolucao_atualizado.csv")
-vendas <- read_csv("vendas.csv",
-                   col_types = cols(`Data Venda` = col_date(format = "%m/%d/%Y"),
-                                    `User ID` = col_character(), `Product ID` = col_character(),
-                                    Price = col_integer(), Rating = col_double()))
-
+vendas <- read_delim("vendas.csv", delim = ";",
+                     escape_double = FALSE, col_types = cols(`Data Venda` = col_date(format = "%m/%d/%Y"),
+                                                             `User ID` = col_character(), `Product ID` = col_character()),
+                     trim_ws = TRUE)
 
 # Organizando os dados
 dados <- vendas %>%
-  select(-c("...1", "...2", "...14")) %>% # Retirar colunas
   distinct(`Unique ID`, .keep_all = T) %>% # Retirar repetições
   mutate(`Motivo devolução` = tidyr::replace_na(`Motivo devolução`, "Não devolução"),
          Mes = format(`Data Venda`, "%m")) # Substituindo NA's e Criando coluna com mes
@@ -51,6 +49,15 @@ venda_ano <- dados %>%
   group_by(Category, Mes) %>%
   summarise(Price = sum(Price), .groups = "keep")
 
+categ_max <- venda_ano %>%
+  group_by(Category) %>%
+  slice_max(Price, n = 1)
+categ_min <- venda_ano %>%
+  group_by(Category) %>%
+  slice_min(Price, n = 1)
+
+min_max <- bind_rows(categ_max, categ_min)
+
 # Gráfico
 ggplot(venda_ano, aes(Mes, Price, group = Category, color = Category)) +
   geom_line(size = 1) +
@@ -62,6 +69,8 @@ ggplot(venda_ano, aes(Mes, Price, group = Category, color = Category)) +
 
 ggsave("gráficolinha.png", width = 158, height = 93, units = "mm")
 
+# Mêses com maior faturamento por Categoria
+xtable::xtable(min_max)
 
 # Análise 2 - Variação do preço por marca
 preco_marca <- dados %>%
@@ -99,7 +108,7 @@ rstatix::kruskal_effsize(preco_marca, Price ~ Brand)
 categoria_cor <- dados %>%
   select(Category, Color) %>%
   tidyr::drop_na(Color) %>%
-  filter(Category != "Kids' Fashion") %>%
+  filter(Category != "Moda Infantil") %>%
   group_by(Color, Category) %>%
   summarise(freq = n()) %>%
   mutate(perc = round(freq/sum(freq),4)*100)
@@ -114,7 +123,7 @@ ggplot(categoria_cor, aes(forcats::fct_reorder(Color, freq, .desc = T),
   geom_text(position = position_dodge(width = .9), vjust = -0.5, hjust = 0.5, size = 2) +
   labs(x = "Cor", y = "Frequência") +
   scale_y_continuous(breaks = seq(0, 70, by = 5)) +
-  theme_estat() +
+  theme_estat(legend.title = element_blank()) +
   scale_fill_manual(values = c("#003366","#A11D21"))
 
 ggsave("coluna.png", width = 158, height = 93, units = "mm")
