@@ -4,18 +4,19 @@ library(ggplot2)
 library(stringr)
 
 
-devolução <- read_csv("devolucao.csv")
 devolucao_atualizada <- read.csv("devolucao_atualizado.csv")
-vendas <- read_delim("vendas.csv", delim = ";",
-                     escape_double = FALSE, col_types = cols(`Data Venda` = col_date(format = "%m/%d/%Y"),
-                                                             `User ID` = col_character(), `Product ID` = col_character()),
+vendas <- read_delim("vendas_traduzido.csv", delim = ";", escape_double = FALSE,
+                     col_types = cols(`Data Venda` = col_date(format = "%m/%d/%Y"),
+                                      `User ID` = col_character(), `Product ID` = col_character(),
+                                      Price = col_number(), Rating = col_number(), `Motivo devolução` = col_skip()),
                      trim_ws = TRUE)
 
 # Organizando os dados
 dados <- vendas %>%
   distinct(`Unique ID`, .keep_all = T) %>% # Retirar repetições
-  mutate(`Motivo devolução` = tidyr::replace_na(`Motivo devolução`, "Não devolução"),
-         Mes = format(`Data Venda`, "%m")) # Substituindo NA's e Criando coluna com mes
+  rename(Unique.ID = "Unique ID") %>%
+  mutate(Motivo.devolução = devolucao_atualizada$Motivo.devolução[match(Unique.ID, devolucao_atualizada$Unique.ID)]) %>%
+  mutate(Mes = format(`Data Venda`, "%m")) # Substituindo NA's e Criando coluna com mes
 
 # Padrão ESTAT
 cores_estat <- c("#A11D21","#003366","#CC9900","#663333","#FF6600","#CC9966",
@@ -44,7 +45,7 @@ theme_estat <- function (...) {
 
 # Análise 1 - Faturamento anual por categoria
 venda_ano <- dados %>%
-  select(Category, Mes, Price, `Motivo devolução`) %>%
+  select(Category, Mes, Price, Motivo.devolução) %>%
   tidyr::drop_na(Price, Mes, Category) %>%
   group_by(Category, Mes) %>%
   summarise(Price = sum(Price), .groups = "keep")
@@ -123,8 +124,49 @@ ggplot(categoria_cor, aes(forcats::fct_reorder(Color, freq, .desc = T),
   geom_text(position = position_dodge(width = .9), vjust = -0.5, hjust = 0.5, size = 2) +
   labs(x = "Cor", y = "Frequência") +
   scale_y_continuous(breaks = seq(0, 70, by = 5)) +
-  theme_estat(legend.title = element_blank()) +
-  scale_fill_manual(values = c("#003366","#A11D21"))
+  theme_estat(legend.title = element_blank())
 
 ggsave("coluna.png", width = 158, height = 93, units = "mm")
 
+
+# Análise 4 - Relação entre preço e avaliação
+preco_aval <- dados %>%
+  select(Price, Rating) %>%
+  tidyr::drop_na()
+
+# Gráfico
+ggplot(preco_aval, aes(Price, Rating)) +
+  geom_point(color = c("#A11D21"), size = 3, alpha = .2) +
+  scale_x_continuous(breaks = seq(0, 100, by = 10)) +
+  labs(x = "Preço", y = "Avaliação") +
+  theme_estat()
+
+ggsave("dispersao.png", width = 158, height = 93, units = "mm")
+
+cor(preco_aval$Price, preco_aval$Rating)
+
+boxplot(preco_aval$Rating)
+
+# Análise 5 - Frequência de cada tipo de devolução por marca
+freq_devol <- dados %>%
+  select(Brand, Motivo.devolução) %>%
+  tidyr::drop_na() %>%
+  group_by(Brand, Motivo.devolução) %>%
+  summarise(freq = n()) %>%
+  mutate(perc = round(freq/sum(freq),4)*100)
+
+porcentagens <- str_c(freq_devol$perc, "%") %>% str_replace("\\.", ",")
+legendas <- str_squish(str_c(freq_devol$freq, " (", porcentagens, ")"))
+
+# Grafico
+ggplot(freq_devol, aes(forcats::fct_reorder(Brand, freq, .desc = T),
+                       y = freq, fill = Motivo.devolução)) +
+  geom_col(position = position_dodge2(preserve = "single", padding = 0)) +
+  labs(x = "Marca", y = "Frequência") +
+  scale_y_continuous(breaks = seq(0, 40, by = 5)) +
+  theme_estat(legend.title = element_blank())
+
+ggsave("coluna2.png", width = 158, height = 93, units = "mm")
+
+# Tabela
+xtable::xtable(freq_devol)
