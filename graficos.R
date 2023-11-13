@@ -133,6 +133,7 @@ ggsave("coluna.png", width = 158, height = 93, units = "mm")
 preco_aval <- dados %>%
   select(Price, Rating) %>%
   tidyr::drop_na()
+preco_aval$aa <- cut(preco_aval$Rating, breaks = c(0, 1, 2, 3, 4, 5), digits = c(1,2,3,4))
 
 # Gráfico
 ggplot(preco_aval, aes(Price, Rating)) +
@@ -145,7 +146,10 @@ ggsave("dispersao.png", width = 158, height = 93, units = "mm")
 
 cor(preco_aval$Price, preco_aval$Rating)
 
-boxplot(preco_aval$Rating)
+helpp <- preco_aval %>%
+  select(aa) %>%
+  group_by(aa) %>%
+  mutate(n = n())
 
 # Análise 5 - Frequência de cada tipo de devolução por marca
 freq_devol <- dados %>%
@@ -170,3 +174,4 @@ ggsave("coluna2.png", width = 158, height = 93, units = "mm")
 
 # Tabela
 xtable::xtable(freq_devol)
+
