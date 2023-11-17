@@ -16,7 +16,7 @@ dados <- vendas %>%
   distinct(`Unique ID`, .keep_all = T) %>% # Retirar repetições
   rename(Unique.ID = "Unique ID") %>%
   mutate(Motivo.devolução = devolucao_atualizada$Motivo.devolução[match(Unique.ID, devolucao_atualizada$Unique.ID)]) %>%
-  mutate(Mes = format(`Data Venda`, "%m")) # Criando coluna com o mes
+  mutate(Mes = lubridate::month(`Data Venda`, label = T))  # Criando coluna com o mes
 
 # Padrão ESTAT
 cores_estat <- c("#A11D21","#003366","#CC9900","#663333","#FF6600","#CC9966",
@@ -44,29 +44,27 @@ theme_estat <- function (...) {
 
 
 ### Análise 1 - Faturamento anual por categoria
-venda_ano <- dados %>%
+faturamento_anual <- dados %>%
   select(Category, Mes, Price) %>%
   tidyr::drop_na(Price, Mes, Category) %>%
   group_by(Category, Mes) %>%
   summarise(Price = sum(Price), .groups = "keep")
 
-venda_total <- venda_ano %>%
-  group_by(Category) %>%
-  summarise(Price = sum(Price)) %>%
-  mutate(Porcentagem =  round(Price/sum(Price),4)*100)
-
 # Gráfico
-ggplot(venda_ano, aes(Mes, Price, group = Category, color = Category)) +
+ggplot(faturamento_anual, aes(Mes, Price, group = Category, color = Category)) +
   geom_line(size = 1) +
   geom_point(size = 2) +
-  scale_x_discrete(labels = month.abb) +
   scale_y_continuous(breaks = seq(200, 3700, by = 500)) +
   labs(x = "Mês", y = "Total Vendido") +
   theme_estat(legend.title = element_blank())
 
 ggsave("gráficolinha.png", width = 158, height = 93, units = "mm")
 
-xtable::xtable(venda_total)
+# Tabela Total
+xtable::xtable(faturamento_anual %>%
+                 group_by(Category) %>%
+                 summarise(Price = sum(Price)) %>%
+                 mutate(Porcentagem =  round(Price/sum(Price),4)*100))
 
 ### Análise 2 - Variação do preço por marca
 preco_marca <- dados %>%
@@ -82,17 +80,21 @@ ggplot(preco_marca, aes(Brand, Price)) +
 
 ggsave("boxplot.png", width = 158, height = 93, units = "mm")
 
+# Quadro medidas resumo
 quadro_resumo <- preco_marca %>%
   group_by(Brand) %>% # caso mais de uma categoria
   summarize(Média = round(mean(Price),2),
               `Desvio Padrão` = round(sd(Price),2),
-              `Variância` = round(var(Price),2),
               `Mínimo` = round(min(Price),2),
               `1º Quartil` = round(quantile(Price, probs = .25),2),
               Mediana = round(quantile(Price, probs = .5),2),
               `3º Quartil` = round(quantile(Price, probs = .75),2),
               `Máximo` = round(max(Price),2)) %>% t() %>% as.data.frame() %>%
-  mutate(V1 = str_replace (V1,"\\.",","))
+  mutate(V1 = str_replace(V1,"\\.",",")) %>%
+  mutate(V2 = str_replace(V2,"\\.",",")) %>%
+  mutate(V3 = str_replace(V3,"\\.",",")) %>%
+  mutate(V4 = str_replace(V4,"\\.",",")) %>%
+  mutate(V5 = str_replace(V5,"\\.",","))
 
 xtable::xtable(quadro_resumo)
 
@@ -105,7 +107,7 @@ rstatix::kruskal_effsize(preco_marca, Price ~ Brand)
 categoria_cor <- dados %>%
   select(Category, Color) %>%
   filter(Category != "Moda Infantil") %>%
-  tidyr::drop_na(Color) %>%
+  tidyr::drop_na() %>%
   group_by(Color, Category) %>%
   summarise(freq = n()) %>%
   mutate(perc = round(freq/sum(freq),4)*100)
@@ -125,22 +127,18 @@ ggplot(categoria_cor, aes(forcats::fct_reorder(Color, freq, .desc = T),
 ggsave("coluna.png", width = 158, height = 93, units = "mm")
 
 # Teste
-categoria_cor2 <- dados %>%
-  select(Category, Color) %>%
-  filter(Category != "Moda Infantil") %>%
-  tidyr::drop_na(Color)
-
-tabela <- table(categoria_cor2)
-
+categoria <- factor(dados$Category)
+cor <- factor(dados$Color)
+tabela <- table(categoria, cor)
 chisq.test(tabela)
 
 ### Análise 4 - Relação entre preço e avaliação
-preco_aval <- dados %>%
+preco_avaliacao <- dados %>%
   select(Price, Rating) %>%
   tidyr::drop_na()
 
 # Gráfico
-ggplot(preco_aval, aes(Price, Rating)) +
+ggplot(preco_avaliacao, aes(Price, Rating)) +
   geom_point(color = c("#A11D21"), size = 3, alpha = .3) +
   scale_x_continuous(breaks = seq(0, 100, by = 10)) +
   labs(x = "Preço", y = "Avaliação") +
@@ -148,12 +146,10 @@ ggplot(preco_aval, aes(Price, Rating)) +
 
 ggsave("dispersao.png", width = 158, height = 93, units = "mm")
 
-cor(preco_aval$Price, preco_aval$Rating)
-
-quadro_resumo2 <- preco_aval %>%
+# Quadro de medidas resumo
+quadro_resumo2 <- preco_avaliacao %>%
   summarize(Média = round(mean(Price),2),
             `Desvio Padrão` = round(sd(Price),2),
-            `Variância` = round(var(Price),2),
             `Mínimo` = round(min(Price),2),
             `1º Quartil` = round(quantile(Price, probs = .25),2),
             Mediana = round(quantile(Price, probs = .5),2),
@@ -163,7 +159,7 @@ quadro_resumo2 <- preco_aval %>%
 
 xtable::xtable(quadro_resumo2)
 
-quadro_resumo3 <- preco_aval %>%
+quadro_resumo3 <- preco_avaliacao %>%
   summarize(Média = round(mean(Rating),2),
             `Desvio Padrão` = round(sd(Rating),2),
             `Variância` = round(var(Rating),2),
@@ -176,9 +172,12 @@ quadro_resumo3 <- preco_aval %>%
 
 xtable::xtable(quadro_resumo3)
 
+# Teste de Correlação
+cor(preco_avaliacao$Price, preco_avaliacao$Rating)
+
 # Teste de Normalidade
-ks.test(preco_aval$Price, "pnorm", mean = mean(preco_aval$Price), sd = sd(preco_aval$Price))
-ks.test(preco_aval$Rating, "pnorm", mean = mean(preco_aval$Rating), sd = sd(preco_aval$Rating))
+shapiro.test(preco_avaliacao$Price)
+shapiro.test(preco_avaliacao$Rating)
 
 
 ### Análise 5 - Frequência de cada tipo de devolução por marca
@@ -207,19 +206,24 @@ ggsave("coluna2.png", width = 158, height = 93, units = "mm")
 xtable::xtable(freq_devol)
 
 ### Análise 6 - Avaliação média por marca
-aval_marca <- dados %>%
+avaliacao_marca <- dados %>%
   select(Brand, Rating) %>%
-  tidyr::drop_na()
-
-aval_marca2 <- aval_marca %>%
+  tidyr::drop_na() %>%
   group_by(Brand) %>%
-  summarise(media = mean(Rating))
+  summarise(minimo = min(Rating), media = mean(Rating), maximo = max(Rating))
+
+ggplot(avaliacao_marca, aes(Brand, media, fill = "#A11D21")) +
+  geom_col() +
+  labs(x = "Marcas", y = "Média da Marca") +
+  coord_cartesian(ylim = c(2, 2.7)) +
+  theme_estat() +
+  theme(legend.position = "none")
+
+ggsave("coluna3.png", width = 158, height = 93, units = "mm")
+
 
 # Tabela e teste
-xtable::xtable(aval_marca2)
-rstatix::kruskal_test(aval_marca, Rating ~ Brand)
+xtable::xtable(avaliacao_marca)
 
-ggplot(aval_marca2, aes(Brand, media)) +
-  geom_point(color = "#A11D21") +
-  theme_estat()
-
+# Teste
+rstatix::kruskal_test(aa, Rating ~ Brand)
