@@ -127,8 +127,13 @@ ggplot(categoria_cor, aes(forcats::fct_reorder(Color, freq, .desc = T),
 ggsave("coluna.png", width = 158, height = 93, units = "mm")
 
 # Teste
-categoria <- factor(dados$Category)
-cor <- factor(dados$Color)
+categoria_cor2 <- dados %>%
+  select(Category, Color) %>%
+  filter(Category != "Moda Infantil") %>%
+  tidyr::drop_na()
+
+categoria <- factor(categoria_cor2$Category)
+cor <- factor(categoria_cor2$Color)
 tabela <- table(categoria, cor)
 chisq.test(tabela)
 
