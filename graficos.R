@@ -176,8 +176,8 @@ xtable::xtable(quadro_resumo3)
 cor(preco_avaliacao$Price, preco_avaliacao$Rating)
 
 # Teste de Normalidade
-shapiro.test(preco_avaliacao$Price)
-shapiro.test(preco_avaliacao$Rating)
+shapiro.test(dados$Price)
+shapiro.test(dados$Rating)
 
 
 ### Análise 5 - Frequência de cada tipo de devolução por marca
@@ -226,4 +226,4 @@ ggsave("coluna3.png", width = 158, height = 93, units = "mm")
 xtable::xtable(avaliacao_marca)
 
 # Teste
-rstatix::kruskal_test(aa, Rating ~ Brand)
+rstatix::kruskal_test(dados, Rating ~ Brand)
