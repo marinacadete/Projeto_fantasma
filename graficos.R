@@ -215,10 +215,15 @@ avaliacao_marca <- dados %>%
   select(Brand, Rating) %>%
   tidyr::drop_na() %>%
   group_by(Brand) %>%
-  summarise(minimo = min(Rating), media = mean(Rating), maximo = max(Rating))
+  summarise(media = round(mean(Rating), 2))
 
-ggplot(avaliacao_marca, aes(Brand, media, fill = "#A11D21")) +
+# Gráfico
+legendas3 <- as.vector(str_squish(str_c(avaliacao_marca$media))) %>% str_replace("\\.", ",")
+
+ggplot(avaliacao_marca, aes(forcats::fct_reorder(Brand, media, .desc = T),
+                            media, fill = "#A11D21", label = legendas3)) +
   geom_col() +
+  geom_text(vjust = -0.5, hjust = 0.5, size = 3) +
   labs(x = "Marcas", y = "Média da Marca") +
   coord_cartesian(ylim = c(2, 2.7)) +
   theme_estat() +
@@ -226,9 +231,24 @@ ggplot(avaliacao_marca, aes(Brand, media, fill = "#A11D21")) +
 
 ggsave("coluna3.png", width = 158, height = 93, units = "mm")
 
+# Tabela
+quadro_resumo4 <- avaliacao_marca %>%
+  group_by(Brand) %>%
+  summarize(Média = round(mean(Rating),2),
+            `Desvio Padrão` = round(sd(Rating),2),
+            `Variância` = round(var(Rating),2),
+            `Mínimo` = round(min(Rating),2),
+            `1º Quartil` = round(quantile(Rating, probs = .25),2),
+            Mediana = round(quantile(Rating, probs = .5),2),
+            `3º Quartil` = round(quantile(Rating, probs = .75),2),
+            `Máximo` = round(max(Rating),2)) %>% t() %>% as.data.frame() %>%
+  mutate(V1 = str_replace (V1,"\\.",",")) %>%
+  mutate(V2 = str_replace (V2,"\\.",",")) %>%
+  mutate(V3 = str_replace (V3,"\\.",",")) %>%
+  mutate(V4 = str_replace (V4,"\\.",",")) %>%
+  mutate(V5 = str_replace (V5,"\\.",","))
 
-# Tabela e teste
-xtable::xtable(avaliacao_marca)
+xtable::xtable(quadro_resumo4)
 
 # Teste
 rstatix::kruskal_test(dados, Rating ~ Brand)
